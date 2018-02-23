@@ -115,13 +115,17 @@ module.exports = function quickchat(dispatch) {
         }
         break;
       /**********************************************************************/
+      case "addmode":
+        addMode = true;
+        command.message('Add mode enabled. First skill you press will set the skill to be added with add cmd.');
+        break;
+      /**********************************************************************/
       case "add": // TODO
         if (skilltoAdd == null) {
           command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
-          addMode = true;
           break;
         }
-        if (arg.length < 3) {
+        if (arg != null && arg.length < 3) {
           command.message('Error: Missing arguments for adding skill. See syntax below.');
           command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
           break;
@@ -173,7 +177,9 @@ module.exports = function quickchat(dispatch) {
         command.message('Command list: \n' +
           '|quickchat| |on/off| - enable/disable quickchat module\n' +
           '|quickchat| |flags| |tag| - toggle enable/disable specific quick chat messages\n' +
-          '|quickchat| |set| |tag| \"msg\" - set quickchat message of skill to msg - must use quotations around msg'
+          '|quickchat| |set| |tag| \"msg\" - set quickchat message of skill to msg - must use quotations around msg\n' +
+          '|quickchat| |addmode| - enable add mode, save the next skill you use to be add a quickchat to.\n' +
+          '|quickchat| |add| '
         ); break;
 
 
