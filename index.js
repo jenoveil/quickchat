@@ -22,13 +22,19 @@ module.exports = function quickchat(dispatch) {
   } catch (e) { console.log(e); }
 
   // Skill Hook
-  dispatch.hook('C_PRESS_SKILL', 1, (event) => {
+  /* dispatch.hook('C_PRESS_SKILL', 1, (event) => {
     if (!addMode) return;
     skilltoAdd = event.skill;
     console.log('skilltoAdd set to ' + skilltoAdd);
-  });
+    addMode = false;
+  }); */
   dispatch.hook('C_START_SKILL', 1, (event) => {
     if (!config.enabled) return;
+    if (addMode) {
+      skilltoAdd = event.skill;
+      console.log('skilltoAdd set to ' + skilltoAdd);
+      addMode = false;
+    }
     if (event.skill in data) {
       lastSkillUsed = event.skill;
       sendMessage(data[event.skill].msg);
@@ -38,6 +44,7 @@ module.exports = function quickchat(dispatch) {
   dispatch.hook('S_START_COOLTIME_SKILL', 1, (event) => {
 
     if (!config.enabled) return;
+    if (!config.cdNotice) return;
     skill = event.skill, cooldown = event.cooldown;
     if (skill in data) {
       if (event.skill == lastSkillUsed) sendCDmsg(skill, cooldown); // prevent cases like GS/AR shared cooldown messing up notices
@@ -60,17 +67,23 @@ module.exports = function quickchat(dispatch) {
       timer1 = cd - 30000;
       timer2 = cd - 10000;
       timer3 = cd - 5000;
-      setTimeout(function() { sendMessage(msg1); }, timer1);
-      setTimeout(function() { sendMessage(msg2); }, timer2);
-      setTimeout(function() { sendMessage(msg3); }, timer3);
+      //setTimeout(function() { sendMessage(msg1); }, timer1);
+      setTimeout(sendMessage, timer1, msg1);
+      //setTimeout(function() { sendMessage(msg2); }, timer2);
+      setTimeout(sendMessage, timer2, msg2);
+      //setTimeout(function() { sendMessage(msg3); }, timer3);
+      setTimeout(sendMessage, timer3, msg3);
     } else if (cd >= 10000) {
       timer2 = cd - 10000;
       timer3 = cd - 5000;
-      setTimeout(function() { sendMessage(msg2); }, timer2);
-      setTimeout(function() { sendMessage(msg3); }, timer3);
+      //setTimeout(function() { sendMessage(msg2); }, timer2);
+      setTimeout(sendMessage,timer2, msg2);
+      //setTimeout(function() { sendMessage(msg3); }, timer3);
+      setTimeout(sendMessage, timer3, msg3);
     } else if (cd >= 5000) {
       timer3 = cd - 5000;
-      setTimeout(function() { sendMessage(msg3); }, timer3);
+      //setTimeout(function() { sendMessage(msg3); }, timer3);
+      setTimeout(sendMessage, timer3, msg3);
     }
 
   }
@@ -125,24 +138,40 @@ module.exports = function quickchat(dispatch) {
           command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
           break;
         }
-        if (arg != null && arg.length < 3) {
+        if (value != null && value.length < 3) {
           command.message('Error: Missing arguments for adding skill. See syntax below.');
           command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
           break;
         }
         try {
-          console.log(arg[0] + " " + arg[1] + " " + arg[2]);
+          console.log(value[0] + " " + value[1] + " " + value[2]);
           data[skilltoAdd] = {
-            "name": arg[0],
+            "name": value[0],
             "flag": true,
-            "tag": arg[1],
-            "msg": arg[2]
+            "tag": value[1],
+            "msg": value[2]
           }
           saveData();
           command.message("Skill added to quickchat: " + data[skilltoAdd].name);
         } catch (e) { console.error("Error adding skill data. ", e); }
         addMode = false; // Reset add mode for skills
         skilltoAdd = null;
+        break;
+      /**********************************************************************/
+      case "remove":
+        if (value[0] == null) {
+          command.message('Syntax: |quickchat| |remove| |tag| - Remove a skill from quickchat identified by its tag.');
+        }
+        let targetFound = false;
+        for (key in data) {
+          if (value[0] == (data[key].tag)) {
+            try {
+              command.message('Deleting ' + data[key].name + ' from quickchat...');
+              delete data[key];
+              break;
+            } catch (e) {console.log("Error deleting skill." , e); }
+          }
+        }
         break;
       /**********************************************************************/
       case "set":
@@ -171,6 +200,10 @@ module.exports = function quickchat(dispatch) {
         saveConfig();
         command.message('Quickchat messages will be sent to ' + (config.sendToRaid ? 'raid' : 'party') + '.');
         break;
+      case "cdNotice":
+        config.cdNotice = !config.cdNotice;
+        saveConfig();
+        command.message('Quickchat cd notice ' + (config.cdNotice ? 'enabled' : 'disabled') + '.');
       /**********************************************************************/
       case "help":
       default:
@@ -179,7 +212,10 @@ module.exports = function quickchat(dispatch) {
           '|quickchat| |flags| |tag| - toggle enable/disable specific quick chat messages\n' +
           '|quickchat| |set| |tag| \"msg\" - set quickchat message of skill to msg - must use quotations around msg\n' +
           '|quickchat| |addmode| - enable add mode, save the next skill you use to be add a quickchat to.\n' +
-          '|quickchat| |add| '
+          '|quickchat| |add| \"skillName\" |tag| \"msg\" - Add skill to quick chat selected from addmode.\n' +
+          '|quickchat| |remove| |tag| - Remove quick chat from skill, selected by tag.\n' +
+          '|quickchat| |raid| - Toggle quickchat send to party or send to raid channel.'
+
         ); break;
 
 
@@ -205,7 +241,7 @@ module.exports = function quickchat(dispatch) {
         // TODO: Make the JSON pretty
 
 
-        fs.writeFileSync(configPath, JSON.stringify(config));
+        fs.writeFileSync(configPath, JSON.stringify(config, null, "\t"));
 
       } catch (e) { console.error("failed to write config", e); }
 
@@ -221,7 +257,7 @@ module.exports = function quickchat(dispatch) {
 
       try {
 
-        fs.writeFileSync(dataPath, JSON.stringify(data));
+        fs.writeFileSync(dataPath, JSON.stringify(data, null, "\t"));
 
       } catch (e) { console.error("failed to write data", e); }
 
