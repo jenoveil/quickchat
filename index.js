@@ -6,8 +6,11 @@ const configPath = path.join(__dirname, "config.json");
 module.exports = function quickchat(dispatch) {
 
   const command = Command(dispatch);
-  lastSkillUsed = null,
-  // Set up data structures
+  let lastSkillUsed = null,
+  addMode = false,
+  skilltoAdd = null,
+  configTimer = null,
+  dataTimer = null,
   config = null,
   data = null;
 
@@ -19,6 +22,11 @@ module.exports = function quickchat(dispatch) {
   } catch (e) { console.log(e); }
 
   // Skill Hook
+  dispatch.hook('C_PRESS_SKILL', 1, (event) => {
+    if (!addMode) return;
+    skilltoAdd = event.skill;
+    console.log('skilltoAdd set to ' + skilltoAdd);
+  });
   dispatch.hook('C_START_SKILL', 1, (event) => {
     if (!config.enabled) return;
     if (event.skill in data) {
@@ -32,7 +40,7 @@ module.exports = function quickchat(dispatch) {
     if (!config.enabled) return;
     skill = event.skill, cooldown = event.cooldown;
     if (skill in data) {
-      if (event.skill == lastSkillUsed) sendCDmsg(skill, cooldown);
+      if (event.skill == lastSkillUsed) sendCDmsg(skill, cooldown); // prevent cases like GS/AR shared cooldown messing up notices
     }
 
   });
@@ -68,29 +76,36 @@ module.exports = function quickchat(dispatch) {
   }
 
   // Chat Hook
-  command.add('quickchat', (setting, value, arg) => {
+  /**************************************************************************/
+  command.add('quickchat', (setting, ...value) => {
 
     switch (setting) {
 
+      /**********************************************************************/
       case "on":
         enabled = true;
+        saveConfig();
         command.message('Quickchat ' + (enabled ? 'enabled' : 'disabled') + '.');
         break;
+      /**********************************************************************/
       case "off":
         enabled = false;
+        saveConfig();
         command.message('Quickchat ' + (enabled ? 'enabled' : 'disabled') + '.');
         break;
+      /**********************************************************************/
       case "flags": // TODO: REBUILD CHAT HOOK
-        if (value.equals(null)) {
+        if (value[0] == (null)) {
           command.message('Syntax: |quickchat| |flags| |tag| - Toggle quickchat messages for individual skills.');
           break;
         }
         let flagFound = false;
         for (key in data) {
-          if (value.equals(data[key][tag])) {
-            data[key][flag] = !data[key][flag];
-            command.message('Quickchat on ' + data[key][name] + (data[key][flag] ? 'enabled' : 'disabled') + '.');
-            found = true;
+          if (value[0] == (data[key].tag)) {
+            data[key].flag = !data[key].flag;
+            saveData();
+            command.message('Quickchat on ' + data[key].name + (data[key].flag ? ' enabled' : ' disabled') + '.');
+            flagFound = true;
             break;
           }
         }
@@ -99,17 +114,45 @@ module.exports = function quickchat(dispatch) {
           command.message('Syntax: |quickchat| |flags| |tag| - Toggle quickchat messages for individual skills.');
         }
         break;
+      /**********************************************************************/
+      case "add": // TODO
+        if (skilltoAdd == null) {
+          command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
+          addMode = true;
+          break;
+        }
+        if (arg.length < 3) {
+          command.message('Error: Missing arguments for adding skill. See syntax below.');
+          command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
+          break;
+        }
+        try {
+          console.log(arg[0] + " " + arg[1] + " " + arg[2]);
+          data[skilltoAdd] = {
+            "name": arg[0],
+            "flag": true,
+            "tag": arg[1],
+            "msg": arg[2]
+          }
+          saveData();
+          command.message("Skill added to quickchat: " + data[skilltoAdd].name);
+        } catch (e) { console.error("Error adding skill data. ", e); }
+        addMode = false; // Reset add mode for skills
+        skilltoAdd = null;
+        break;
+      /**********************************************************************/
       case "set":
-        if (value.equals(null)) {
+        if (value[0] == (null)) {
           command.message('Syntax: |quickchat| |set| |tag| \"msg\" - Set quickchat message of a skill to msg - must use quotations around msg.');
           break;
         }
         let setFound = false;
         for (key in data) {
-          if (value.equals(data[key][tag])) {
-            data[key][msg] = arg;
-            command.message('Message on ' + data[key][name] + ' set to: \"' + data[key][msg] + '\".');
-            found = true;
+          if (value[0] == (data[key].tag)) {
+            data[key].msg = value[1];
+            saveData();
+            command.message('Message on ' + data[key].name + ' set to: \"' + data[key].msg + '\".');
+            setFound = true;
             break;
           }
         }
@@ -118,12 +161,19 @@ module.exports = function quickchat(dispatch) {
           command.message('Syntax: |quickchat| |set| |tag| \"msg\" - Set quickchat message of a skill to msg - must use quotations around msg.');
         }
         break;
+      /**********************************************************************/
+      case "raid":
+        config.sendToRaid = !config.sendToRaid;
+        saveConfig();
+        command.message('Quickchat messages will be sent to ' + (config.sendToRaid ? 'raid' : 'party') + '.');
+        break;
+      /**********************************************************************/
       case "help":
       default:
         command.message('Command list: \n' +
-          '|on/off| - enable/disable quickchat module\n' +
-          '|flags| |tag| - toggle enable/disable specific quick chat messages\n' +
-          '|set| |tag| \"msg\" - set quickchat message of skill to msg - must use quotations around msg'
+          '|quickchat| |on/off| - enable/disable quickchat module\n' +
+          '|quickchat| |flags| |tag| - toggle enable/disable specific quick chat messages\n' +
+          '|quickchat| |set| |tag| \"msg\" - set quickchat message of skill to msg - must use quotations around msg'
         ); break;
 
 
@@ -132,10 +182,9 @@ module.exports = function quickchat(dispatch) {
   });
 
   function sendMessage(msg) {
-    if (!enabled) return;
-    ch = (config.sendToRaid ? 32 : 1);
+    if (!config.enabled) return;
     dispatch.toServer('C_CHAT', 1, {
-      channel: 1, // 1 = party, 32 = raid
+      channel: (config.sendToRaid ? 32 : 1), // 1 = party, 32 = raid
       message: msg
     });
     return;
@@ -143,23 +192,35 @@ module.exports = function quickchat(dispatch) {
 
   function saveConfig() {
 
-    try {
+    clearTimeout(configTimer);
+    configTimer = setTimeout(function() {
 
-      fs.writeFileSync(configPath, JSON.stringify(config));
+      try {
+        // TODO: Make the JSON pretty
 
-    } catch (e) { console.error("failed to write config", e); }
+
+        fs.writeFileSync(configPath, JSON.stringify(config));
+
+      } catch (e) { console.error("failed to write config", e); }
+
+    }, 1e4);
+
 
   }
 
   function saveData() {
 
-    try {
+    clearTimeout(dataTimer);
+    dataTimer = setTimeout(function() {
 
-      fs.writeFileSync(dataPath, JSON.stringify(data));
+      try {
 
-    } catch (e) {
-      console.error("failed to write data", e);
-    }
+        fs.writeFileSync(dataPath, JSON.stringify(data));
+
+      } catch (e) { console.error("failed to write data", e); }
+
+    }, 1e4);
+
   }
 
 }
