@@ -22,3 +22,4 @@ Use /8 quickchat |cmd| |arg list|
 
 - Find a way to fix that one issue above
 - Add a feature to use more than one message for a particular skill, true quick chat RNG
+- Add toggle for cd notice on individual skills
