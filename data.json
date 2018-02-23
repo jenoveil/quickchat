@@ -1,0 +1,26 @@
+{
+"67279064": {
+  "name": "Adrenaline Rush",
+  "flag": true,
+  "tag": "ar",
+  "msg": "ar popped"
+  },
+"67179164": {
+  "name": "Guardian Shout",
+  "flag": true,
+  "tag": "gs",
+  "msg": "gs popped"
+  },
+"67228964": {
+  "name": "Infuriate",
+  "flag": true,
+  "tag": "inf",
+  "msg": "force enrage popped"
+  },
+"67378964": {
+  "name": "Rallying Cry",
+  "flag": true,
+  "tag": "rally",
+  "msg": "rallycry popped"
+  }
+}
