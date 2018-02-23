@@ -143,6 +143,12 @@ module.exports = function quickchat(dispatch) {
           command.message('Syntax: |add| \"skillName\" |tag| \"msg\" - Press the skill you want to attach, and use this command. Use quotations around skillName and msg.');
           break;
         }
+        for (key in data) {
+          if (key == skilltoAdd) {
+            command.message('Skill ID already exists in data.json. No skill entry added.');
+            break;
+          }
+        }
         try {
           console.log(value[0] + " " + value[1] + " " + value[2]);
           data[skilltoAdd] = {
@@ -214,7 +220,8 @@ module.exports = function quickchat(dispatch) {
           '|quickchat| |addmode| - enable add mode, save the next skill you use to be add a quickchat to.\n' +
           '|quickchat| |add| \"skillName\" |tag| \"msg\" - Add skill to quick chat selected from addmode.\n' +
           '|quickchat| |remove| |tag| - Remove quick chat from skill, selected by tag.\n' +
-          '|quickchat| |raid| - Toggle quickchat send to party or send to raid channel.'
+          '|quickchat| |raid| - Toggle quickchat send to party or send to raid channel.\n' +
+          '|quickchat| |cdNotice| - Toggle skill cd notices' 
 
         ); break;
 
